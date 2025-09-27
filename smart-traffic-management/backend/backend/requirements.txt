@@ -1,0 +1,10 @@
+flask
+flask-cors
+flask-socketio
+eventlet
+gevent
+opencv-python
+torch
+ultralytics
+numpy
+requests
