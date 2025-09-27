@@ -1,0 +1,3720 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Traffic Management System - Dashboard</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #1a237e;
+            --primary-dark: #0d1b61;
+            --secondary-color: #2196f3;
+            --accent-color: #ff5722;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --danger-color: #f44336;
+            --background-color: #f5f7fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --text-light: #78909c;
+            --border-color: #e0e0e0;
+            --emergency-color: #f44336;
+            --bus-color: #ff9800;
+            --glow-color: rgba(255, 255, 255, 0.8);
+            --shadow-light: rgba(0, 0, 0, 0.08);
+            --shadow-medium: rgba(0, 0, 0, 0.12);
+            --shadow-dark: rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            background: linear-gradient(135deg, var(--background-color) 0%, #e3f2fd 100%);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            background-attachment: fixed;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
+            color: white;
+            padding: 1.2rem 2rem;
+            box-shadow: 0 4px 12px var(--shadow-dark);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 4px solid var(--secondary-color);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: 1.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .header-info {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.95rem;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #95a5a6;
+            display: inline-block;
+            margin-left: 0.5rem;
+            box-shadow: 0 0 0 0 rgba(149, 165, 166, 0.7);
+        }
+
+        .status-indicator.online {
+            background: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+
+        /* Traffic light glow animation */
+        @keyframes glow {
+            0% { box-shadow: 0 0 5px var(--glow-color); }
+            50% { box-shadow: 0 0 25px var(--glow-color); }
+            100% { box-shadow: 0 0 5px var(--glow-color); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Navigation */
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0 2rem;
+            box-shadow: 0 2px 8px var(--shadow-light);
+        }
+
+        .nav-tab {
+            padding: 1.1rem 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--text-light);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-tab:hover {
+            background: var(--background-color);
+            color: var(--primary-color);
+        }
+
+        .nav-tab.active {
+            border-bottom-color: var(--secondary-color);
+            color: var(--secondary-color);
+            background: rgba(33, 150, 243, 0.05);
+        }
+
+        .nav-tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 3px;
+            background: var(--secondary-color);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        .nav-tab:hover::after {
+            width: 100%;
+        }
+
+        .nav-tab.active::after {
+            width: 100%;
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2.5rem;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.8rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .card {
+            background: var(--card-background);
+            border-radius: 16px;
+            padding: 1.8rem;
+            box-shadow: 0 6px 16px var(--shadow-medium);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px var(--shadow-dark);
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card h3 {
+            color: var(--primary-color);
+            margin-bottom: 1.2rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* Live Dashboard Specific Styles */
+        /* 4-Camera Grid Layout */
+        .camera-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            width: 100%;
+            height: 450px;
+            background: linear-gradient(135deg, #0d1b2a, #1b263b);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 3px solid var(--secondary-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        
+        .camera-grid::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.7) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .camera-cell {
+            position: relative;
+            background: #0d1b2a;
+            border: 2px solid rgba(33, 150, 243, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .camera-cell:hover {
+            border-color: var(--secondary-color);
+            transform: scale(1.02);
+            z-index: 2;
+        }
+        
+        .camera-cell img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+        
+        .camera-label {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(26, 35, 126, 0.85);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .vehicle-count-overlay {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(26, 35, 126, 0.85);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .queue-indicator {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .queue-indicator.stopped {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+        }
+        
+        .queue-indicator.moving {
+            background: linear-gradient(135deg, #4caf50, #388e3c);
+            color: white;
+        }
+        
+        .direction-timer {
+            position: absolute;
+            top: 45px;
+            right: 12px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255, 152, 0, 0.9);
+            color: #000;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .direction-timer.active {
+            background: linear-gradient(135deg, #4caf50, #388e3c);
+            color: white;
+            animation: timer-pulse 1s infinite;
+        }
+        
+        .direction-timer.waiting {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+        }
+        
+        @keyframes timer-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .camera-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #90a4ae;
+            background: rgba(13, 27, 42, 0.9);
+            z-index: 5;
+            border-radius: 12px;
+        }
+        
+        .camera-placeholder i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.7;
+            color: var(--secondary-color);
+        }
+        
+        .camera-placeholder p {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-diagnose {
+            background: linear-gradient(135deg, var(--warning-color), #f57c00);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-diagnose:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(255, 152, 0, 0.4);
+        }
+
+        .btn-diagnose:active {
+            transform: translateY(0);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, white, #f8f9fa);
+            margin: 5% auto;
+            padding: 2.5rem;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 850px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: 20px 20px 0 0;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: var(--primary-color);
+            margin: 0;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .close {
+            font-size: 2.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+            transition: color 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .close:hover {
+            color: var(--danger-color);
+            background: rgba(244, 67, 54, 0.1);
+        }
+
+        .diagnostic-form {
+            margin-bottom: 2.5rem;
+        }
+
+        .diagnostic-form input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1.05rem;
+            margin-bottom: 1.2rem;
+            transition: all 0.3s;
+            background: rgba(245, 247, 250, 0.7);
+        }
+
+        .diagnostic-form input:focus {
+            border-color: var(--secondary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+            background: white;
+        }
+
+        .diagnostic-results {
+            margin-top: 2.5rem;
+        }
+
+        .diagnostic-attempt {
+            background: var(--background-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid var(--border-color);
+            box-shadow: 0 4px 12px var(--shadow-light);
+            transition: all 0.3s ease;
+        }
+
+        .diagnostic-attempt:hover {
+            transform: translateX(5px);
+            box-shadow: 0 6px 16px var(--shadow-medium);
+        }
+
+        .diagnostic-attempt.success {
+            border-left-color: var(--success-color);
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        }
+
+        .diagnostic-attempt.failed {
+            border-left-color: var(--danger-color);
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+        }
+
+        .diagnostic-attempt h4 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .diagnostic-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .diagnostic-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--secondary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .vehicle-counts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem;
+        }
+
+        .count-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem;
+            background: linear-gradient(135deg, var(--card-background), #f1f8ff);
+            border-radius: 12px;
+            border-left: 5px solid var(--secondary-color);
+            box-shadow: 0 4px 12px var(--shadow-light);
+            transition: all 0.3s ease;
+        }
+
+        .count-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px var(--shadow-medium);
+        }
+
+        .count-item.emergency {
+            border-left-color: var(--emergency-color);
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+        }
+
+        .count-item.bus {
+            border-left-color: var(--bus-color);
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        }
+
+        .count-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .signal-state {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            text-align: center;
+        }
+
+        .direction-signal {
+            padding: 1.5rem;
+            border-radius: 16px;
+            background: var(--card-background);
+            border: 2px solid var(--border-color);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 6px 16px var(--shadow-medium);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .direction-signal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .direction-signal:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px var(--shadow-dark);
+        }
+
+        .direction-signal:hover::before {
+            transform: scaleX(1);
+        }
+
+        .direction-signal h4 {
+            margin: 0 0 15px 0;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            animation: fadeIn 0.5s;
+            font-weight: 600;
+        }
+
+        .direction-signal.green {
+            border-color: var(--success-color);
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        }
+
+        .direction-signal.yellow {
+            border-color: var(--warning-color);
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+        }
+
+        .direction-signal.red {
+            border-color: var(--emergency-color);
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+        }
+
+        /* Enhanced traffic light styling */
+        .traffic-light {
+            width: 70px;
+            height: 160px;
+            background: linear-gradient(145deg, #2c3847, #1a237e);
+            border-radius: 12px;
+            margin: 0 auto 15px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            border: 3px solid #0d1b2a;
+            position: relative;
+        }
+
+        .traffic-light::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.05) 75%, transparent 75%, transparent);
+            background-size: 20px 20px;
+            border-radius: 12px;
+            pointer-events: none;
+        }
+
+        .light {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            margin: 0 auto;
+            background: #111;
+            border: 3px solid #000;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .light.red { 
+            background: linear-gradient(145deg, #4a0000, #2c0000);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+        }
+        
+        .light.yellow { 
+            background: linear-gradient(145deg, #4a4a00, #2c2c00);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+        }
+        
+        .light.green { 
+            background: linear-gradient(145deg, #004a00, #002c00);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+        }
+
+        .light::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            width: 18px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            transform: rotate(45deg);
+        }
+
+        .light.active.red { 
+            background: linear-gradient(145deg, #ff5252, #d32f2f);
+            box-shadow: 0 0 25px #ff5252, inset 0 0 20px rgba(255,255,255,0.4);
+            animation: glow 1.5s infinite alternate, pulse 2s infinite;
+            border: 3px solid rgba(255,255,255,0.6);
+        }
+        
+        .light.active.yellow { 
+            background: linear-gradient(145deg, #ffd740, #ffc107);
+            box-shadow: 0 0 25px #ffd740, inset 0 0 20px rgba(255,255,255,0.4);
+            animation: glow 1.5s infinite alternate, pulse 2s infinite;
+            border: 3px solid rgba(255,255,255,0.6);
+        }
+        
+        .light.active.green { 
+            background: linear-gradient(145deg, #69f0ae, #00c853);
+            box-shadow: 0 0 25px #69f0ae, inset 0 0 20px rgba(255,255,255,0.4);
+            animation: glow 1.5s infinite alternate, pulse 2s infinite;
+            border: 3px solid rgba(255,255,255,0.6);
+        }
+
+        .signal-status {
+            font-size: 1rem;
+            margin-top: 8px;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: rgba(0,0,0,0.1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .signal-status.red { 
+            color: var(--emergency-color);
+            background: rgba(244, 67, 54, 0.15);
+        }
+        
+        .signal-status.yellow { 
+            color: var(--warning-color);
+            background: rgba(255, 152, 0, 0.15);
+        }
+        
+        .signal-status.green { 
+            color: var(--success-color);
+            background: rgba(76, 175, 80, 0.15);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.9rem 1.8rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            position: relative;
+            overflow: hidden;
+            outline: none;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0));
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .btn:hover::before {
+            transform: translateY(0);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary { 
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white; 
+        }
+        
+        .btn-success { 
+            background: linear-gradient(135deg, var(--success-color), #388e3c);
+            color: white; 
+        }
+        
+        .btn-warning { 
+            background: linear-gradient(135deg, var(--warning-color), #f57c00);
+            color: white; 
+        }
+        
+        .btn-danger { 
+            background: linear-gradient(135deg, var(--danger-color), #d32f2f);
+            color: white; 
+        }
+        
+        .btn-secondary { 
+            background: linear-gradient(135deg, var(--border-color), #cfd8dc);
+            color: var(--text-color); 
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn:disabled:hover {
+            transform: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:disabled:hover::before {
+            transform: translateY(100%);
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 1.8rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.7rem;
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 1.05rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 1.05rem;
+            transition: all 0.3s;
+            background: rgba(245, 247, 250, 0.7);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.05);
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 1.2rem 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: 6px;
+            transition: width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: progress-shine 2s infinite;
+        }
+
+        @keyframes progress-shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Emergency Alert */
+        .emergency-alert {
+            background: linear-gradient(135deg, var(--danger-color), #d32f2f);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: none;
+            animation: flashAlert 1s infinite alternate;
+            box-shadow: 0 8px 20px rgba(244, 67, 54, 0.3);
+            border-left: 5px solid white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-alert::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.1) 75%, transparent 75%, transparent);
+            background-size: 30px 30px;
+            pointer-events: none;
+        }
+
+        .emergency-alert.active {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        @keyframes flashAlert {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0.8; transform: scale(1.02); }
+        }
+
+        /* Metrics Display */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .metric-card {
+            text-align: center;
+            padding: 2rem;
+            background: var(--card-background);
+            border-radius: 16px;
+            box-shadow: 0 6px 16px var(--shadow-medium);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px var(--shadow-dark);
+        }
+
+        .metric-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 0.7rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-label {
+            color: var(--text-light);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-top: 1.5rem;
+            background: var(--card-background);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 6px 16px var(--shadow-medium);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Event Log */
+        .event-log {
+            max-height: 450px;
+            overflow-y: auto;
+            background: var(--card-background);
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 6px 16px var(--shadow-medium);
+            border: 1px solid var(--border-color);
+        }
+
+        .log-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .log-item:hover {
+            background: var(--background-color);
+            transform: translateX(5px);
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .log-time {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            min-width: 90px;
+            font-weight: 600;
+        }
+
+        .log-message {
+            flex: 1;
+            margin: 0 1.5rem;
+            font-weight: 500;
+        }
+
+        .log-type {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .log-type.emergency { 
+            background: linear-gradient(135deg, var(--danger-color), #d32f2f);
+            color: white; 
+        }
+        
+        .log-type.bus { 
+            background: linear-gradient(135deg, var(--bus-color), #f57c00);
+            color: white; 
+        }
+        
+        .log-type.signal { 
+            background: linear-gradient(135deg, var(--secondary-color), #1976d2);
+            color: white; 
+        }
+        
+        .log-type.manual { 
+            background: linear-gradient(135deg, var(--warning-color), #f57c00);
+            color: white; 
+        }
+
+        /* File Upload */
+        .file-upload {
+            border: 3px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--card-background), #f1f8ff);
+            box-shadow: 0 6px 16px var(--shadow-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(33, 150, 243, 0.03) 25%, transparent 25%, transparent 50%, rgba(33, 150, 243, 0.03) 50%, rgba(33, 150, 243, 0.03) 75%, transparent 75%, transparent);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+
+        .file-upload:hover {
+            border-color: var(--secondary-color);
+            background: linear-gradient(135deg, #f1f8ff, #e3f2fd);
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px var(--shadow-medium);
+        }
+
+        .file-upload.dragover {
+            border-color: var(--secondary-color);
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(33, 150, 243, 0.05));
+            transform: scale(1.02);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .signal-state {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1.2rem;
+            }
+
+            .nav-tabs {
+                overflow-x: auto;
+                white-space: nowrap;
+                padding: 0 1rem;
+            }
+
+            .nav-tab {
+                padding: 1rem 1.5rem;
+                font-size: 0.95rem;
+            }
+
+            .card-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .vehicle-counts,
+            .signal-state {
+                grid-template-columns: 1fr;
+            }
+
+            .main-content {
+                padding: 1.5rem;
+            }
+
+            .camera-grid {
+                height: 400px;
+            }
+
+            .traffic-light {
+                width: 60px;
+                height: 140px;
+                padding: 8px;
+            }
+
+            .light {
+                width: 35px;
+                height: 35px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .file-upload {
+                padding: 2rem 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header-info {
+                font-size: 0.8rem;
+                gap: 1rem;
+                padding: 0.4rem 0.8rem;
+            }
+
+            .nav-tab {
+                padding: 0.8rem 1.2rem;
+                font-size: 0.9rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .card {
+                padding: 1.2rem;
+            }
+
+            .card h3 {
+                font-size: 1.1rem;
+            }
+
+            .camera-grid {
+                height: 350px;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .camera-label,
+            .vehicle-count-overlay,
+            .queue-indicator,
+            .direction-timer {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+            }
+
+            .traffic-light {
+                width: 50px;
+                height: 120px;
+                padding: 6px;
+            }
+
+            .light {
+                width: 30px;
+                height: 30px;
+            }
+
+            .light::before {
+                top: 6px;
+                left: 8px;
+                width: 14px;
+                height: 14px;
+            }
+
+            .signal-status {
+                font-size: 0.8rem;
+                padding: 4px 8px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metric-value {
+                font-size: 2rem;
+            }
+
+            .btn {
+                padding: 0.7rem 1.2rem;
+                font-size: 0.9rem;
+                gap: 0.5rem;
+            }
+
+            .form-group label {
+                font-size: 1rem;
+            }
+
+            .form-control {
+                padding: 0.8rem;
+                font-size: 1rem;
+            }
+
+            .log-item {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .log-time {
+                min-width: auto;
+            }
+
+            .log-message {
+                margin: 0;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--secondary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Wide layout for full screen */
+        .wide-card {
+            grid-column: 1 / -1;
+        }
+
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .split-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1>
+                <i class="fas fa-traffic-light"></i>
+                Smart Traffic Management System
+                <span class="status-indicator" id="connectionStatus"></span>
+            </h1>
+            <div class="header-info">
+                <span id="currentTime"></span> |
+                <span id="systemStatus">Stopped</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <button class="nav-tab active" onclick="showTab('dashboard')">
+            <i class="fas fa-tachometer-alt"></i> Live Dashboard
+        </button>
+        <button class="nav-tab" onclick="showTab('control')">
+            <i class="fas fa-cogs"></i> Control Panel
+        </button>
+        <button class="nav-tab" onclick="showTab('simulation')">
+            <i class="fas fa-play-circle"></i> Simulation
+        </button>
+        <button class="nav-tab" onclick="showTab('logs')">
+            <i class="fas fa-list-alt"></i> Logs & Alerts
+        </button>
+        <button class="nav-tab" onclick="showTab('settings')">
+            <i class="fas fa-sliders-h"></i> Settings
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Emergency Alert -->
+        <div class="emergency-alert" id="emergencyAlert">
+            <i class="fas fa-exclamation-triangle fa-2x"></i>
+            <div>
+                <strong>EMERGENCY VEHICLE DETECTED!</strong>
+                <span id="emergencyDetails"></span>
+            </div>
+        </div>
+
+        <!-- Live Dashboard Tab -->
+        <div id="dashboard" class="tab-content active fade-in">
+            <div class="card-grid">
+                <!-- 4-Camera View Grid -->
+                <div class="card wide-card">
+                    <h3><i class="fas fa-video"></i> Live Traffic Monitoring - All Directions
+                        <span id="detectionStatus" class="status-badge" style="font-size: 0.9rem; margin-left: 1.2rem; padding: 0.3rem 0.7rem; border-radius: 20px; background: linear-gradient(135deg, #4caf50, #388e3c); color: white; font-weight: 600;">Detection: Active</span>
+                    </h3>
+                    
+                    <div class="camera-grid">
+                        <!-- North Camera -->
+                        <div class="camera-cell">
+                            <div class="camera-label"><i class="fas fa-arrow-up"></i> North ↑</div>
+                            <div class="queue-indicator" id="northQueue">Queue: 0</div>
+                            <div class="direction-timer" id="northTimer">Wait: --</div>
+                            <img id="northCamera" src="" alt="North Camera" style="display: none;">
+                            <div id="northPlaceholder" class="camera-placeholder">
+                                <i class="fas fa-camera"></i>
+                                <p>North Camera Feed</p>
+                                <small>Waiting for connection...</small>
+                            </div>
+                            <div class="vehicle-count-overlay" id="northCount"><i class="fas fa-car"></i> Vehicles: 0</div>
+                        </div>
+                        
+                        <!-- East Camera -->
+                        <div class="camera-cell">
+                            <div class="camera-label"><i class="fas fa-arrow-right"></i> East →</div>
+                            <div class="queue-indicator" id="eastQueue">Queue: 0</div>
+                            <div class="direction-timer" id="eastTimer">Wait: --</div>
+                            <img id="eastCamera" src="" alt="East Camera" style="display: none;">
+                            <div id="eastPlaceholder" class="camera-placeholder">
+                                <i class="fas fa-camera"></i>
+                                <p>East Camera Feed</p>
+                                <small>Waiting for connection...</small>
+                            </div>
+                            <div class="vehicle-count-overlay" id="eastCount"><i class="fas fa-car"></i> Vehicles: 0</div>
+                        </div>
+                        
+                        <!-- South Camera -->
+                        <div class="camera-cell">
+                            <div class="camera-label"><i class="fas fa-arrow-down"></i> South ↓</div>
+                            <div class="queue-indicator" id="southQueue">Queue: 0</div>
+                            <div class="direction-timer" id="southTimer">Wait: --</div>
+                            <img id="southCamera" src="" alt="South Camera" style="display: none;">
+                            <div id="southPlaceholder" class="camera-placeholder">
+                                <i class="fas fa-camera"></i>
+                                <p>South Camera Feed</p>
+                                <small>Waiting for connection...</small>
+                            </div>  
+                            <div class="vehicle-count-overlay" id="southCount"><i class="fas fa-car"></i> Vehicles: 0</div>
+                        </div>
+                        
+                        <!-- West Camera -->
+                        <div class="camera-cell">
+                            <div class="camera-label"><i class="fas fa-arrow-left"></i> West ←</div>
+                            <div class="queue-indicator" id="westQueue">Queue: 0</div>
+                            <div class="direction-timer" id="westTimer">Wait: --</div>
+                            <img id="westCamera" src="" alt="West Camera" style="display: none;">
+                            <div id="westPlaceholder" class="camera-placeholder">
+                                <i class="fas fa-camera"></i>
+                                <p>West Camera Feed</p>
+                                <small>Waiting for connection...</small>
+                            </div>
+                            <div class="vehicle-count-overlay" id="westCount"><i class="fas fa-car"></i> Vehicles: 0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="camera-controls">
+                        <button class="btn btn-secondary">
+                            <i class="fas fa-sync"></i> Refresh All Cameras
+                        </button>
+                        <button class="btn-diagnose">
+                            <i class="fas fa-stethoscope"></i> Diagnose IP Camera
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="split-layout">
+                <!-- Vehicle Counts -->
+                <div class="card">
+                    <h3><i class="fas fa-car"></i> Live Vehicle Counts</h3>
+                    <div class="vehicle-counts">
+                        <div class="count-item" id="northCountCard">
+                            <span><i class="fas fa-arrow-up"></i> North</span>
+                            <span class="count-value">0</span>
+                        </div>
+                        <div class="count-item" id="eastCountCard">
+                            <span><i class="fas fa-arrow-right"></i> East</span>
+                            <span class="count-value">0</span>
+                        </div>
+                        <div class="count-item" id="southCountCard">
+                            <span><i class="fas fa-arrow-down"></i> South</span>
+                            <span class="count-value">0</span>
+                        </div>
+                        <div class="count-item" id="westCountCard">
+                            <span><i class="fas fa-arrow-left"></i> West</span>
+                            <span class="count-value">0</span>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top: 2rem; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-star"></i> Special Vehicles
+                    </h4>
+                    <div class="vehicle-counts">
+                        <div class="count-item bus" id="busCount">
+                            <span><i class="fas fa-bus"></i> Buses</span>
+                            <span class="count-value">0</span>
+                        </div>
+                        <div class="count-item emergency" id="emergencyCount">
+                            <span><i class="fas fa-ambulance"></i> Emergency</span>
+                            <span class="count-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signal States -->
+                <div class="card">
+                    <h3><i class="fas fa-traffic-light"></i> Current Signal State</h3>
+                    <div class="signal-state">
+                        <div class="direction-signal" id="northSignal">
+                            <h4>North</h4>
+                            <div class="traffic-light">
+                                <div class="light red" id="northRedLight"></div>
+                                <div class="light yellow" id="northYellowLight"></div>
+                                <div class="light green" id="northGreenLight"></div>
+                            </div>
+                            <div class="signal-status red" id="northSignalStatus">RED</div>
+                        </div>
+                        <div class="direction-signal" id="eastSignal">
+                            <h4>East</h4>
+                            <div class="traffic-light">
+                                <div class="light red" id="eastRedLight"></div>
+                                <div class="light yellow" id="eastYellowLight"></div>
+                                <div class="light green" id="eastGreenLight"></div>
+                            </div>
+                            <div class="signal-status red" id="eastSignalStatus">RED</div>
+                        </div>
+                        <div class="direction-signal" id="southSignal">
+                            <h4>South</h4>
+                            <div class="traffic-light">
+                                <div class="light red" id="southRedLight"></div>
+                                <div class="light yellow" id="southYellowLight"></div>
+                                <div class="light green" id="southGreenLight"></div>
+                            </div>
+                            <div class="signal-status red" id="southSignalStatus">RED</div>
+                        </div>
+                        <div class="direction-signal" id="westSignal">
+                            <h4>West</h4>
+                            <div class="traffic-light">
+                                <div class="light red" id="westRedLight"></div>
+                                <div class="light yellow" id="westYellowLight"></div>
+                                <div class="light green" id="westGreenLight"></div>
+                            </div>
+                            <div class="signal-status red" id="westSignalStatus">RED</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 2rem; text-align: center; background: linear-gradient(135deg, var(--background-color), #e3f2fd); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <p style="font-weight: 600; margin-bottom: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                            <i class="fas fa-info-circle"></i> Traffic Signal Information
+                        </p>
+                        <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
+                            <div>
+                                <strong>Current Green:</strong> 
+                                <span id="nextDirection" style="color: var(--success-color); font-weight: 700;">-</span>
+                            </div>
+                            <div>
+                                <strong>Remaining Time:</strong> 
+                                <span id="remainingTime" style="font-size: 1.3rem; font-weight: 800; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">-</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1.2rem; padding: 1rem; background: rgba(255, 255, 255, 0.7); border-radius: 8px; font-size: 0.9rem;">
+                            <strong>Adaptive Timing:</strong> Signal duration automatically adjusts (10-90s) based on vehicle queue length and emergency vehicles.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="avgWaitTime">0</div>
+                    <div class="metric-label">Avg Wait Time (s)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="throughput">0</div>
+                    <div class="metric-label">Throughput (/min)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="congestionLevel">0</div>
+                    <div class="metric-label">Congestion (%)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="efficiencyScore">0</div>
+                    <div class="metric-label">Efficiency Score</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel Tab -->
+        <div id="control" class="tab-content">
+            <div class="card-grid">
+                <!-- System Control -->
+                <div class="card">
+                    <h3><i class="fas fa-power-off"></i> System Control</h3>
+                    <div style="display: flex; gap: 1.2rem; flex-wrap: wrap; margin-bottom: 2rem;">
+                        <button class="btn btn-success" id="startBtn">
+                            <i class="fas fa-play"></i> Start System
+                        </button>
+                        <button class="btn btn-danger" id="stopBtn" disabled>
+                            <i class="fas fa-stop"></i> Stop System
+                        </button>
+                        <button class="btn btn-secondary" style="background: linear-gradient(135deg, #263238, #37474f); color: white;">
+                            <i class="fas fa-video"></i> Refresh Cameras
+                        </button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-cog"></i> System Mode</label>
+                        <select id="modeSelect" class="form-control">
+                            <option value="live">Live Camera Mode</option>
+                            <option value="simulation">Simulation Mode</option>
+                        </select>
+                    </div>
+                    
+                    <div style="background: linear-gradient(135deg, var(--background-color), #e3f2fd); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); margin-top: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-info-circle"></i> System Status
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                            <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--success-color);">ONLINE</div>
+                                <div style="font-size: 0.9rem; color: var(--text-light);">Connection</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--primary-color);">4</div>
+                                <div style="font-size: 0.9rem; color: var(--text-light);">Cameras</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 1.8rem; font-weight: 700; color: var(--warning-color);">32</div>
+                                <div style="font-size: 0.9rem; color: var(--text-light);">Vehicles</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Override -->
+                <div class="card">
+                    <h3><i class="fas fa-hand-paper"></i> Manual Override</h3>
+                    <p style="margin-bottom: 1.5rem; color: var(--text-light); background: linear-gradient(135deg, var(--background-color), #fff3e0); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--warning-color);">
+                        <i class="fas fa-exclamation-triangle"></i> Manually set a direction to green. System will respect minimum green time.
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem;">
+                        <button class="btn btn-warning" style="background: linear-gradient(135deg, #ff9800, #f57c00);">
+                            <i class="fas fa-arrow-up"></i> North Green
+                        </button>
+                        <button class="btn btn-warning" style="background: linear-gradient(135deg, #ff9800, #f57c00);">
+                            <i class="fas fa-arrow-right"></i> East Green
+                        </button>
+                        <button class="btn btn-warning" style="background: linear-gradient(135deg, #ff9800, #f57c00);">
+                            <i class="fas fa-arrow-down"></i> South Green
+                        </button>
+                        <button class="btn btn-warning" style="background: linear-gradient(135deg, #ff9800, #f57c00);">
+                            <i class="fas fa-arrow-left"></i> West Green
+                        </button>
+                    </div>
+                    
+                    <button class="btn btn-secondary" style="width: 100%; margin-top: 1.5rem; background: linear-gradient(135deg, #78909c, #546e7a); color: white;">
+                        <i class="fas fa-undo"></i> Resume Automatic Control
+                    </button>
+                </div>
+
+                <!-- Timing Configuration -->
+                <div class="card">
+                    <h3><i class="fas fa-clock"></i> Timing Settings</h3>
+                    <div class="form-group">
+                        <label for="yellowTime"><i class="fas fa-exclamation"></i> Yellow Phase Duration (3-5 seconds)</label>
+                        <input type="range" id="yellowTime" min="3" max="5" step="0.1" value="4" 
+                               class="form-control" style="padding: 0; height: 8px;">
+                        <div style="text-align: center; margin-top: 0.8rem; background: var(--background-color); padding: 0.8rem; border-radius: 8px;">
+                            <span id="yellowTimeValue" style="font-size: 1.5rem; font-weight: 700; color: var(--warning-color);">4.0</span> seconds
+                        </div>
+                    </div>
+                    
+                    <div style="background: linear-gradient(135deg, var(--background-color), #e8f5e9); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); margin-top: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-list"></i> Timing Constraints
+                        </h4>
+                        <ul style="margin: 0.8rem 0; padding-left: 1.8rem; color: var(--text-light);">
+                            <li style="margin-bottom: 0.5rem;"><strong>Minimum Green:</strong> 30 seconds</li>
+                            <li style="margin-bottom: 0.5rem;"><strong>Maximum Green:</strong> 90 seconds</li>
+                            <li><strong>Yellow Duration:</strong> 3-5 seconds (configurable)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulation Tab -->
+        <div id="simulation" class="tab-content">
+            <div class="card-grid">
+                <!-- Video Upload -->
+                <div class="card wide-card">
+                    <h3><i class="fas fa-upload"></i> Upload Traffic Video</h3>
+                    <div class="file-upload" id="fileUpload">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; margin-bottom: 1.5rem; color: var(--secondary-color);"></i>
+                        <h3 style="margin-bottom: 1rem; color: var(--primary-color);">Upload Traffic Simulation Video</h3>
+                        <p style="margin-bottom: 1.5rem; color: var(--text-light);">Click to select or drag & drop a video file for traffic simulation</p>
+                        <small style="background: var(--background-color); padding: 0.5rem 1rem; border-radius: 20px;">Supported formats: MP4, AVI, MOV</small>
+                    </div>
+                    <input type="file" id="videoFile" accept="video/*" style="display: none;">
+                </div>
+
+                <!-- Simulation Control -->
+                <div class="card">
+                    <h3><i class="fas fa-play"></i> Simulation Control</h3>
+                    <div class="form-group">
+                        <label for="videoPath"><i class="fas fa-file-video"></i> Video File Path</label>
+                        <input type="text" id="videoPath" class="form-control" placeholder="Path to video file">
+                    </div>
+                    
+                    <div style="display: flex; gap: 1.2rem; margin-bottom: 1.5rem;">
+                        <button class="btn btn-primary" style="flex: 1;">
+                            <i class="fas fa-play"></i> Start Simulation
+                        </button>
+                        <button class="btn btn-secondary" style="flex: 1; background: linear-gradient(135deg, #78909c, #546e7a); color: white;">
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Simulation Progress</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="simulationProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: linear-gradient(135deg, var(--background-color), #fff3e0); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border-color); margin-top: 1rem;">
+                        <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-bolt"></i> Simulation Status
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div style="background: white; padding: 0.8rem; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--success-color);">READY</div>
+                                <div style="font-size: 0.8rem; color: var(--text-light);">Status</div>
+                            </div>
+                            <div style="background: white; padding: 0.8rem; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">00:00</div>
+                                <div style="font-size: 0.8rem; color: var(--text-light);">Duration</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Metrics -->
+                <div class="card">
+                    <h3><i class="fas fa-chart-bar"></i> Simulation Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value" id="simAvgWait">0</div>
+                            <div class="metric-label">Avg Wait Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="simThroughput">0</div>
+                            <div class="metric-label">Throughput</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="simIdleTime">0</div>
+                            <div class="metric-label">% Idle Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="simImprovement">0</div>
+                            <div class="metric-label">% Improvement</div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="simulationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs & Alerts Tab -->
+        <div id="logs" class="tab-content">
+            <div class="card-grid">
+                <!-- Event Log -->
+                <div class="card wide-card">
+                    <h3><i class="fas fa-list"></i> System Events Log</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="btn btn-primary">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                            <button class="btn btn-success">
+                                <i class="fas fa-download"></i> Export CSV
+                            </button>
+                        </div>
+                        <div>
+                            <select id="logFilter" class="form-control" style="width: auto; min-width: 150px;">
+                                <option value="">All Events</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="bus">Bus Priority</option>
+                                <option value="signal">Signal Changes</option>
+                                <option value="manual">Manual Override</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="event-log" id="eventLog">
+                        <div class="log-item">
+                            <div class="log-time">--:--:--</div>
+                            <div class="log-message">System initialized and ready for operation</div>
+                            <div class="log-type signal">SIGNAL</div>
+                        </div>
+                        <div class="log-item">
+                            <div class="log-time">--:--:--</div>
+                            <div class="log-message">All camera feeds connected successfully</div>
+                            <div class="log-type signal">SIGNAL</div>
+                        </div>
+                        <div class="log-item">
+                            <div class="log-time">--:--:--</div>
+                            <div class="log-message">Traffic detection algorithm activated</div>
+                            <div class="log-type signal">SIGNAL</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <div class="card-grid">
+                <!-- Camera Configuration -->
+                <div class="card">
+                    <h3><i class="fas fa-camera"></i> Camera Configuration</h3>
+                    <div class="form-group">
+                        <label for="northCameraInput"><i class="fas fa-arrow-up"></i> North Camera URL</label>
+                        <input type="url" id="northCameraInput" class="form-control" 
+                               placeholder="rtsp://camera-ip:554/stream">
+                    </div>
+                    <div class="form-group">
+                        <label for="cameraFps"><i class="fas fa-video"></i> Phone Camera FPS (recommended 1-60)</label>
+                        <input type="number" id="cameraFps" class="form-control" min="1" max="60" value="30">
+                    </div>
+                    <div class="form-group">
+                        <label for="deviceSelect"><i class="fas fa-microchip"></i> Inference Device</label>
+                        <select id="deviceSelect" class="form-control">
+                            <option value="cpu">CPU</option>
+                            <option value="cuda">GPU (cuda)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fastMode"><i class="fas fa-tachometer-alt"></i> High-FPS Mode</label>
+                        <select id="fastMode" class="form-control">
+                            <option value="off">Off (regular accuracy)</option>
+                            <option value="yolov8n">YOLOv8n (fast)</option>
+                            <option value="yolov8s">YOLOv8s (balanced)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="eastCameraInput"><i class="fas fa-arrow-right"></i> East Camera URL</label>
+                        <input type="url" id="eastCameraInput" class="form-control" 
+                               placeholder="http://camera-ip/snapshot.jpg">
+                    </div>
+                    <div class="form-group">
+                        <label for="southCameraInput"><i class="fas fa-arrow-down"></i> South Camera URL</label>
+                        <input type="url" id="southCameraInput" class="form-control" 
+                               placeholder="rtsp://camera-ip:554/stream">
+                    </div>
+                    <div class="form-group">
+                        <label for="westCameraInput"><i class="fas fa-arrow-left"></i> West Camera URL</label>
+                        <input type="url" id="westCameraInput" class="form-control" 
+                               placeholder="http://camera-ip/snapshot.jpg">
+                    </div>
+                    
+                    <button class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-save"></i> Save Camera Configuration
+                    </button>
+                </div>
+
+                <!-- Detection Thresholds -->
+                <div class="card">
+                    <h3><i class="fas fa-search"></i> Detection Settings</h3>
+                    <div class="form-group">
+                        <label for="detectionThreshold"><i class="fas fa-car"></i> Vehicle Detection Confidence</label>
+                        <input type="range" id="detectionThreshold" min="0.1" max="1.0" step="0.05" value="0.5" 
+                               class="form-control" style="padding: 0; height: 8px;">
+                        <div style="text-align: center; margin-top: 0.8rem; background: var(--background-color); padding: 0.8rem; border-radius: 8px;">
+                            <span id="detectionThresholdValue" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">0.5</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="emergencyThreshold"><i class="fas fa-ambulance"></i> Emergency Vehicle Sensitivity</label>
+                        <input type="range" id="emergencyThreshold" min="0.5" max="1.0" step="0.05" value="0.8" 
+                               class="form-control" style="padding: 0; height: 8px;">
+                        <div style="text-align: center; margin-top: 0.8rem; background: var(--background-color); padding: 0.8rem; border-radius: 8px;">
+                            <span id="emergencyThresholdValue" style="font-size: 1.5rem; font-weight: 700; color: var(--danger-color);">0.8</span>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-save"></i> Save Detection Settings
+                    </button>
+                </div>
+
+                <!-- System Information -->
+                <div class="card">
+                    <h3><i class="fas fa-info-circle"></i> System Information</h3>
+                    <div style="background: linear-gradient(135deg, var(--background-color), #e3f2fd); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                            <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 0.9rem; color: var(--text-light);">Version</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">1.0.0</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 0.9rem; color: var(--text-light);">Build</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">2024.01.15</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 0.9rem; color: var(--text-light);">ML Model</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">YOLOv8</div>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-light);">
+                                <div style="font-size: 0.9rem; color: var(--text-light);">Update Interval</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">1 second</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin: 1.5rem 0 1rem 0; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-list"></i> Priority Rules
+                    </h4>
+                    <div style="background: linear-gradient(135deg, var(--background-color), #e8f5e9); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+                        <ul style="margin: 0; padding-left: 1.8rem; color: var(--text-light);">
+                            <li style="margin-bottom: 0.8rem; padding: 0.5rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px var(--shadow-light);">
+                                <strong style="color: var(--danger-color);">Emergency vehicles:</strong> Immediate priority
+                            </li>
+                            <li style="margin-bottom: 0.8rem; padding: 0.5rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px var(--shadow-light);">
+                                <strong style="color: var(--bus-color);">Bus priority:</strong> 3+ buses trigger priority
+                            </li>
+                            <li style="margin-bottom: 0.8rem; padding: 0.5rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px var(--shadow-light);">
+                                <strong style="color: var(--primary-color);">Adaptive timing:</strong> 30-90 second green phases
+                            </li>
+                            <li style="padding: 0.5rem; background: white; border-radius: 6px; box-shadow: 0 2px 4px var(--shadow-light);">
+                                <strong style="color: var(--warning-color);">Safe transitions:</strong> 3-5 second yellow phases
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // API base helper with auto-detection when frontend is on another port
+        let API_BASE = (location.port === '5000') ? '' : 'http://127.0.0.1:5000';
+        let apiDetectionDone = false;
+        let apiDetectPromise = null;
+        async function detectApiBase() {
+            if (apiDetectionDone && apiDetectPromise) return apiDetectPromise;
+            apiDetectPromise = (async () => {
+            const candidates = [
+                '',
+                'http://127.0.0.1:5000',
+                'http://localhost:5000',
+                'http://127.0.0.1:5050'
+            ];
+            for (const base of candidates) {
+                try {
+                    const resp = await fetch(base + '/api/status', { method: 'GET' });
+                    if (resp.ok) {
+                        API_BASE = base;
+                        console.log('API base set to', API_BASE || '(same origin)');
+                        apiDetectionDone = true;
+                        return API_BASE;
+                    }
+                } catch (e) { /* try next */ }
+            }
+            console.warn('Could not reach backend API; using default', API_BASE);
+            apiDetectionDone = true;
+            return API_BASE;
+            })();
+            return apiDetectPromise;
+        }
+        // Global variables
+        let socket;
+        let isConnected = false;
+        let currentData = {};
+        let charts = {};
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('DOM loaded, initializing application...');
+            
+            // Initialize basic UI first
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            initializeCharts();
+            
+            // Detect backend API base first and wait for it
+            console.log('Detecting backend API base...');
+            await detectApiBase();
+            console.log('API base detected:', API_BASE || '(same origin)');
+            
+            // Initialize socket connection
+            initializeSocket();
+            
+            // Start periodic status polling
+            setInterval(pollSystemStatus, 2000);
+            
+            // Initialize all 4 cameras after API detection
+            console.log('Initializing cameras with detected API base...');
+            setTimeout(() => {
+                initializeAllCameras();
+            }, 1000); // Wait 1 second for API to be fully ready
+            
+            // Start periodic vehicle count updates
+            setInterval(updateVehicleCounts, 3000);
+            
+            // Load initial configuration
+            loadConfig();
+            
+            // Add event listeners for save buttons
+            const cameraSaveBtn = document.querySelector('#settings .card button.btn-primary');
+            if (cameraSaveBtn) {
+                cameraSaveBtn.addEventListener('click', saveCameraConfig);
+                console.log('Added event listener to camera save button');
+            }
+            
+            const detectionSaveBtn = document.querySelector('#settings .card:nth-child(2) button.btn-primary');
+            if (detectionSaveBtn) {
+                detectionSaveBtn.addEventListener('click', saveDetectionSettings);
+                console.log('Added event listener to detection save button');
+            }
+        });
+
+        // Socket.IO connection
+        async function initializeSocket() {
+            try { await detectApiBase(); } catch(e) {}
+            // If API_BASE is '' it means same-origin (port 5000 if served by backend)
+            const endpoint = API_BASE || undefined;
+            socket = io(endpoint, { transports: ['websocket', 'polling'] });
+            
+            socket.on('connect', function() {
+                isConnected = true;
+                document.getElementById('connectionStatus').classList.add('online');
+                console.log('Connected to server');
+            });
+            
+            socket.on('disconnect', function() {
+                isConnected = false;
+                document.getElementById('connectionStatus').classList.remove('online');
+                console.log('Disconnected from server');
+            });
+            
+            socket.on('live_update', function(data) {
+                updateDashboard(data);
+            });
+            
+            socket.on('signal_event', function(event) {
+                addLogEvent(event);
+                
+                // Handle emergency alerts
+                if (event.type === 'emergency_detected') {
+                    showEmergencyAlert(event.data.direction, event.data.count);
+                } else if (event.type === 'emergency_cleared') {
+                    hideEmergencyAlert();
+                }
+            });
+            
+            socket.on('heartbeat', function(data) {
+                // Keep connection alive
+            });
+        }
+
+        // Update current time display
+        function updateCurrentTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+        }
+
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active class from all nav tabs
+            const navTabs = document.querySelectorAll('.nav-tab');
+            navTabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            const targetTab = document.getElementById(tabName);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            
+            // Find and activate the corresponding nav tab
+            const navTab = Array.from(navTabs).find(tab => 
+                tab.getAttribute('onclick')?.includes(tabName)
+            );
+            if (navTab) {
+                navTab.classList.add('active');
+            }
+            
+            console.log(`Switched to ${tabName} tab`);
+        }
+
+        // System control functions
+        async function startSystem() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/start', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('systemStatus').textContent = 'Running';
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Start system error:', error);
+            }
+        }
+
+        async function stopSystem() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/stop', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('systemStatus').textContent = 'Stopped';
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').disabled = true;
+                }
+            } catch (error) {
+                console.error('Stop system error:', error);
+            }
+        }
+
+        // Periodically poll backend status to keep UI accurate
+        async function pollSystemStatus() {
+            try {
+                await detectApiBase();
+                const res = await fetch(API_BASE + '/api/status');
+                if (!res.ok) return;
+                const s = await res.json();
+                const running = s.status === 'running';
+                const statusEl = document.getElementById('systemStatus');
+                if (statusEl) statusEl.textContent = running ? 'Running' : 'Stopped';
+                const startBtn = document.getElementById('startBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                if (startBtn && stopBtn) {
+                    startBtn.disabled = running;
+                    stopBtn.disabled = !running;
+                }
+                
+                // Update detection status
+                const detectionStatus = document.getElementById('detectionStatus');
+                if (detectionStatus) {
+                    if (s.camera_detection_enabled) {
+                        detectionStatus.textContent = `Detection: Active (${s.active_cameras || 0} cameras)`;
+                        detectionStatus.style.background = '#28a745';
+                    } else {
+                        detectionStatus.textContent = 'Detection: Simulation Mode';
+                        detectionStatus.style.background = '#6c757d';
+                    }
+                }
+                
+                // If cameras exist and no preview is shown yet, default to north
+                if (s.cameras && s.cameras.north && document.getElementById('mjpegView') && document.getElementById('mjpegView').style.display === 'none') {
+                    setMjpegSrc('north');
+                }
+                
+                // Update dashboard with full status data
+                updateDashboard(s);
+                
+                // Also fetch vehicle counts for more detailed signal timing info
+                try {
+                    const vehicleRes = await fetch(API_BASE + '/api/vehicle-counts');
+                    if (vehicleRes.ok) {
+                        const vehicleData = await vehicleRes.json();
+                        // Update signal timing display with more accurate data
+                        updateSignalTiming(vehicleData.signal_timing || {});
+                    }
+                } catch (e) {
+                    console.log('Could not fetch vehicle counts for signal timing update');
+                }
+            } catch (e) {
+                // ignore transient errors
+            }
+        }
+
+        // Manual override functions
+        async function manualOverride(direction) {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/signals/main_intersection/manual-override', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ direction: direction })
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Manual override error:', error);
+            }
+        }
+
+        async function resumeAuto() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/signals/main_intersection/resume-auto', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Resume auto error:', error);
+            }
+        }
+
+        // Update dashboard with live data
+        function updateDashboard(data) {
+            console.log('Dashboard update received:', data);
+            currentData = data;
+            
+            // Update vehicle counts
+            if (data.vehicle_counts) {
+                updateVehicleCounts(data.vehicle_counts);
+            }
+            
+            // Update signal states
+            if (data.signal_states && data.signal_states.main_intersection) {
+                console.log('Updating signal states with:', data.signal_states.main_intersection);
+                updateSignalStates(data.signal_states.main_intersection);
+            }
+            
+            // Update metrics from separate API call
+            updateMetrics();
+        }
+
+        function updateVehicleCounts(counts) {
+            const directions = ['north', 'east', 'south', 'west'];
+            let totalBuses = 0;
+            let totalEmergency = 0;
+            
+            directions.forEach(direction => {
+                const count = counts[direction] || { total: 0, buses: 0, emergency: 0 };
+                const element = document.getElementById(direction + 'Count');
+                if (element) {
+                    element.querySelector('.count-value').textContent = count.total || 0;
+                }
+                
+                totalBuses += count.buses || 0;
+                totalEmergency += count.emergency || 0;
+            });
+            
+            // Update special vehicle counts
+            document.getElementById('busCount').querySelector('.count-value').textContent = totalBuses;
+            document.getElementById('emergencyCount').querySelector('.count-value').textContent = totalEmergency;
+        }
+
+        function updateSignalStates(signalData) {
+            console.log('Updating signal states with data:', signalData);
+            const directions = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
+            
+            // Reset all lights to red first
+            directions.forEach(direction => {
+                const elementId = direction.toLowerCase();
+                const redLight = document.getElementById(elementId + 'RedLight');
+                const yellowLight = document.getElementById(elementId + 'YellowLight');
+                const greenLight = document.getElementById(elementId + 'GreenLight');
+                const signalStatus = document.getElementById(elementId + 'SignalStatus');
+                
+                // Turn off all lights
+                if (redLight) redLight.classList.remove('active');
+                if (yellowLight) yellowLight.classList.remove('active');
+                if (greenLight) greenLight.classList.remove('active');
+                
+                // Turn on red light by default
+                if (redLight) redLight.classList.add('active');
+                
+                // Update status text
+                if (signalStatus) {
+                    signalStatus.textContent = 'RED';
+                    signalStatus.className = 'signal-status red';
+                }
+                
+                // Update signal box
+                const signalElement = document.getElementById(elementId + 'Signal');
+                if (signalElement) {
+                    signalElement.className = 'direction-signal red';
+                }
+            });
+            
+            // Now set the correct states based on signalData
+            if (signalData.signal_states) {
+                console.log('Signal states from backend:', signalData.signal_states);
+                
+                for (const direction in signalData.signal_states) {
+                    const state = signalData.signal_states[direction];
+                    const elementId = direction.toLowerCase();
+                    
+                    // Get all light elements for this direction
+                    const redLight = document.getElementById(elementId + 'RedLight');
+                    const yellowLight = document.getElementById(elementId + 'YellowLight');
+                    const greenLight = document.getElementById(elementId + 'GreenLight');
+                    const signalStatus = document.getElementById(elementId + 'SignalStatus');
+                    
+                    // Turn off all lights
+                    if (redLight) redLight.classList.remove('active');
+                    if (yellowLight) yellowLight.classList.remove('active');
+                    if (greenLight) greenLight.classList.remove('active');
+                    
+                    // Turn on the appropriate light
+                    switch(state) {
+                        case 'RED':
+                            if (redLight) redLight.classList.add('active');
+                            break;
+                        case 'YELLOW':
+                            if (yellowLight) yellowLight.classList.add('active');
+                            break;
+                        case 'GREEN':
+                            if (greenLight) greenLight.classList.add('active');
+                            break;
+                    }
+                    
+                    // Update status text
+                    if (signalStatus) {
+                        signalStatus.textContent = state;
+                        signalStatus.className = 'signal-status ' + state.toLowerCase();
+                    }
+                    
+                    // Update signal box
+                    const signalElement = document.getElementById(elementId + 'Signal');
+                    if (signalElement) {
+                        signalElement.className = 'direction-signal ' + state.toLowerCase();
+                    }
+                }
+            } else {
+                // Fallback: use current_green_direction
+                const currentGreen = signalData.current_green_direction;
+                if (currentGreen) {
+                    const elementId = currentGreen.toLowerCase();
+                    const greenLight = document.getElementById(elementId + 'GreenLight');
+                    const signalStatus = document.getElementById(elementId + 'SignalStatus');
+                    const signalElement = document.getElementById(elementId + 'Signal');
+                    
+                    // Turn off red light and turn on green light
+                    const redLight = document.getElementById(elementId + 'RedLight');
+                    if (redLight) redLight.classList.remove('active');
+                    if (greenLight) greenLight.classList.add('active');
+                    
+                    // Update status text
+                    if (signalStatus) {
+                        signalStatus.textContent = 'GREEN';
+                        signalStatus.className = 'signal-status green';
+                    }
+                    
+                    // Update signal box
+                    if (signalElement) {
+                        signalElement.className = 'direction-signal green';
+                    }
+                }
+            }
+            
+            // Update timing info
+            const nextDirectionElement = document.getElementById('nextDirection');
+            const remainingTimeElement = document.getElementById('remainingTime');
+            
+            if (nextDirectionElement) {
+                // Show current green direction or "Changing..." if in yellow phase
+                if (signalData.signal_states) {
+                    // Check if any direction is yellow
+                    let isYellowPhase = false;
+                    for (let dir in signalData.signal_states) {
+                        if (signalData.signal_states[dir] === 'YELLOW') {
+                            isYellowPhase = true;
+                            break;
+                        }
+                    }
+                    
+                    if (isYellowPhase) {
+                        nextDirectionElement.textContent = 'Changing...';
+                        nextDirectionElement.style.color = '#ffc107'; // Yellow color
+                    } else {
+                        const currentGreen = Object.keys(signalData.signal_states).find(dir => signalData.signal_states[dir] === 'GREEN');
+                        nextDirectionElement.textContent = currentGreen || '-';
+                        nextDirectionElement.style.color = '#28a745'; // Green color
+                    }
+                } else {
+                    const currentGreen = signalData.current_green_direction;
+                    nextDirectionElement.textContent = currentGreen || '-';
+                    nextDirectionElement.style.color = '#28a745'; // Green color
+                }
+            }
+            
+            if (remainingTimeElement) {
+                let remainingTime = '-';
+                if (signalData.remaining_time !== undefined) {
+                    remainingTime = Math.ceil(signalData.remaining_time) + 's';
+                } else if (signalData.remaining_min_green !== undefined) {
+                    remainingTime = Math.ceil(signalData.remaining_min_green) + 's';
+                }
+                remainingTimeElement.textContent = remainingTime;
+                
+                // Color code the remaining time
+                const remainingSeconds = signalData.remaining_time || 0;
+                if (remainingSeconds <= 3) {
+                    remainingTimeElement.style.color = '#ffc107'; // Yellow for last 3 seconds
+                } else if (remainingSeconds <= 10) {
+                    remainingTimeElement.style.color = '#fd7e14'; // Orange for last 10 seconds
+                } else {
+                    remainingTimeElement.style.color = '#28a745'; // Green for normal time
+                }
+            }
+        }
+
+        async function updateMetrics() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/metrics');
+                const metrics = await response.json();
+                
+                document.getElementById('avgWaitTime').textContent = Math.round(metrics.average_wait_time || 0);
+                document.getElementById('throughput').textContent = Math.round(metrics.throughput || 0);
+                document.getElementById('congestionLevel').textContent = Math.round(metrics.congestion_level || 0);
+                document.getElementById('efficiencyScore').textContent = Math.round(metrics.efficiency_score || 0);
+            } catch (error) {
+                console.error('Update metrics error:', error);
+            }
+        }
+
+        // Emergency alert functions
+        function showEmergencyAlert(direction, count) {
+            const alert = document.getElementById('emergencyAlert');
+            const details = document.getElementById('emergencyDetails');
+            
+            details.textContent = `${count} emergency vehicle(s) detected in ${direction} direction`;
+            alert.classList.add('active');
+        }
+
+        function hideEmergencyAlert() {
+            document.getElementById('emergencyAlert').classList.remove('active');
+        }
+
+        // Settings functions
+        function updateYellowTime(value) {
+            document.getElementById('yellowTimeValue').textContent = parseFloat(value).toFixed(1);
+        }
+
+        function updateDetectionThreshold(value) {
+            document.getElementById('detectionThresholdValue').textContent = value;
+        }
+
+        function updateEmergencyThreshold(value) {
+            document.getElementById('emergencyThresholdValue').textContent = value;
+        }
+
+        async function saveCameraConfig() {
+            console.log('\n🔧 === SAVE CAMERA CONFIG STARTED ===');
+            
+            // ensure API base is detected before sending requests
+            try { 
+                await detectApiBase(); 
+                console.log('✅ API base detected:', API_BASE);
+            } catch(e) { 
+                console.error('❌ API base detection failed:', e);
+            }
+            
+            const saveBtn = document.querySelector('#settings .card button.btn.btn-primary');
+            if (saveBtn) { 
+                saveBtn.disabled = true; 
+                saveBtn.textContent = 'Saving...'; 
+            }
+            
+            // Get camera URLs
+            const cameraUrls = {
+                north: document.getElementById('northCameraInput').value.trim(),
+                east: document.getElementById('eastCameraInput').value.trim(),
+                south: document.getElementById('southCameraInput').value.trim(),
+                west: document.getElementById('westCameraInput').value.trim()
+            };
+            
+            console.log('📹 Camera URLs to save:', cameraUrls);
+            console.log('🔍 Debug input elements:', {
+                northElement: !!document.getElementById('northCameraInput'),
+                eastElement: !!document.getElementById('eastCameraInput'),
+                southElement: !!document.getElementById('southCameraInput'),
+                westElement: !!document.getElementById('westCameraInput'),
+                northValue: document.getElementById('northCameraInput')?.value || 'NOT FOUND',
+                eastValue: document.getElementById('eastCameraInput')?.value || 'NOT FOUND',
+                southValue: document.getElementById('southCameraInput')?.value || 'NOT FOUND',
+                westValue: document.getElementById('westCameraInput')?.value || 'NOT FOUND'
+            });
+            
+            // Check if any camera URL is provided
+            const hasAnyCamera = Object.values(cameraUrls).some(url => url !== '');
+            console.log('✅ Validation check:', {
+                hasAnyCamera,
+                urlValues: Object.values(cameraUrls),
+                nonEmptyUrls: Object.values(cameraUrls).filter(url => url !== '')
+            });
+            
+            if (!hasAnyCamera) {
+                const message = '⚠️ Please enter at least one camera URL before saving.\n\nDetected values:\n' + 
+                    `North: "${cameraUrls.north}"\n` +
+                    `East: "${cameraUrls.east}"\n` +
+                    `South: "${cameraUrls.south}"\n` +
+                    `West: "${cameraUrls.west}"`;
+                alert(message);
+                console.error('❌ No camera URLs found:', cameraUrls);
+                if (saveBtn) { 
+                    saveBtn.disabled = false; 
+                    saveBtn.textContent = 'Save Configuration'; 
+                }
+                return;
+            }
+            
+            // Prepare configuration object
+            const config = {
+                camera_urls: cameraUrls,
+                detection_threshold: parseFloat(document.getElementById('detectionThreshold')?.value || 0.5),
+                emergency_threshold: parseFloat(document.getElementById('emergencyThreshold')?.value || 0.8),
+                yellow_time: parseFloat(document.getElementById('yellowTime')?.value || 4.0)
+            };
+            
+            // If user provided a single camera URL in north, also send as camera_url for backward compatibility
+            if (cameraUrls.north && !cameraUrls.east && !cameraUrls.south && !cameraUrls.west) {
+                config.camera_url = cameraUrls.north;
+                console.log('📱 Single camera mode - north camera:', cameraUrls.north);
+            }
+            
+            try {
+                console.log('📤 Sending configuration to backend:', config);
+                const response = await fetch(API_BASE + '/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                console.log('📥 Backend response status:', response.status, response.statusText);
+                const data = await response.json().catch(() => ({}));
+                console.log('📊 Backend response data:', data);
+                
+                if (response.ok) {
+                    console.log('✅ Camera configuration saved successfully!');
+                    alert('✅ Camera configuration saved successfully!');
+                    
+                    // Important: Refresh all camera feeds after saving
+                    console.log('🔄 Refreshing camera feeds in 1 second...');
+                    setTimeout(() => {
+                        console.log('🎬 Calling initializeAllCameras()...');
+                        initializeAllCameras();
+                    }, 1000); // Wait 1 second for backend to process config
+                    
+                    // Also force a hard refresh of camera elements
+                    setTimeout(() => {
+                        console.log('🔄 Force refreshing all camera elements...');
+                        refreshAllCameras();
+                    }, 2000); // Additional refresh after 2 seconds
+                    
+                    // Auto-start the system if not running
+                    try {
+                        const statusResponse = await fetch(API_BASE + '/api/status');
+                        const statusData = await statusResponse.json();
+                        console.log('📊 System status:', statusData.status);
+                        if (statusData.status !== 'running') {
+                            console.log('🚀 Auto-starting system...');
+                            await fetch(API_BASE + '/api/start', { method: 'POST' });
+                            console.log('✅ System auto-started');
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Auto-start failed:', e);
+                    }
+                } else {
+                    const msg = data.error || data.message || 'Failed to save configuration';
+                    alert('❌ Failed to save configuration: ' + msg);
+                    console.error('❌ Save failed:', msg);
+                }
+            } catch (error) {
+                console.error('❌ Save camera config error:', error);
+                alert('❌ Network error while saving configuration. Make sure the backend is running on 127.0.0.1:5000');
+            }
+            
+            if (saveBtn) { 
+                saveBtn.disabled = false; 
+                saveBtn.textContent = 'Save Configuration'; 
+            }
+            
+            console.log('🔧 === SAVE CAMERA CONFIG COMPLETED ===\n');
+        }
+
+        // Global camera management
+        let currentMjpegCamera = null;
+        let mjpegRetryCount = 0;
+        const MAX_MJPEG_RETRIES = 3;
+        let mjpegLoadingTimeout = null;
+        let snapshotInterval = null;
+        
+        function setMjpegSrc(cameraId) {
+            const img = document.getElementById('mjpegView');
+            const placeholder = document.getElementById('cameraPlaceholder');
+            if (!img || !cameraId) {
+                console.error('Missing required elements for camera:', { img: !!img, cameraId });
+                return;
+            }
+            
+            console.log('Starting camera feed for:', cameraId);
+            
+            // Clear any existing timers
+            if (mjpegLoadingTimeout) {
+                clearTimeout(mjpegLoadingTimeout);
+                mjpegLoadingTimeout = null;
+            }
+            if (snapshotInterval) {
+                clearInterval(snapshotInterval);
+                snapshotInterval = null;
+            }
+            
+            // Reset state
+            currentMjpegCamera = cameraId;
+            mjpegRetryCount = 0;
+            
+            // Show loading state
+            img.style.display = 'none';
+            if (placeholder) {
+                placeholder.innerHTML = `
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 1rem; color: #3498db;"></i>
+                    <p>Starting camera feed...</p>
+                    <small>Camera: ${cameraId.toUpperCase()}</small>
+                `;
+                placeholder.style.display = 'block';
+            }
+            
+            // Try MJPEG first, fallback to snapshots
+            tryMjpegStream(cameraId, img, placeholder);
+        }
+        
+        function tryMjpegStream(cameraId, img, placeholder) {
+            console.log('Attempting MJPEG stream for:', cameraId);
+            
+            const mjpegUrl = API_BASE + '/mjpeg_feed?camera=' + encodeURIComponent(cameraId) + '&_=' + Date.now();
+            
+            // Create a new image element for MJPEG
+            const testImg = new Image();
+            testImg.style.cssText = 'width:100%; height:100%; object-fit:cover; position: relative; z-index: 1;';
+            
+            // Set timeout for MJPEG attempt
+            mjpegLoadingTimeout = setTimeout(() => {
+                console.log('MJPEG timeout, switching to snapshot mode');
+                testImg.src = ''; // Cancel MJPEG load
+                startSnapshotMode(cameraId, img, placeholder);
+            }, 3000);
+            
+            testImg.onload = function() {
+                console.log('MJPEG stream loaded successfully');
+                if (mjpegLoadingTimeout) {
+                    clearTimeout(mjpegLoadingTimeout);
+                    mjpegLoadingTimeout = null;
+                }
+                
+                // Replace the image in the DOM
+                const cameraView = document.getElementById('cameraView');
+                if (cameraView && img) {
+                    cameraView.removeChild(img);
+                    testImg.id = 'mjpegView';
+                    cameraView.appendChild(testImg);
+                }
+                
+                testImg.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+                currentMjpegCamera = null;
+            };
+            
+            testImg.onerror = function() {
+                console.log('MJPEG failed, switching to snapshot mode');
+                if (mjpegLoadingTimeout) {
+                    clearTimeout(mjpegLoadingTimeout);
+                    mjpegLoadingTimeout = null;
+                }
+                startSnapshotMode(cameraId, img, placeholder);
+            };
+            
+            testImg.src = mjpegUrl;
+        }
+        
+        function startSnapshotMode(cameraId, img, placeholder) {
+            console.log('Starting snapshot mode for:', cameraId);
+            
+            if (placeholder) {
+                placeholder.innerHTML = `
+                    <i class="fas fa-video" style="font-size: 2rem; margin-bottom: 1rem; color: #28a745;"></i>
+                    <p>Simulation Mode Active</p>
+                    <small>Real-time vehicle detection</small>
+                `;
+                placeholder.style.display = 'block';
+            }
+            
+            // Load snapshots every 500ms for smooth video-like experience
+            const loadSnapshot = () => {
+                if (currentMjpegCamera !== cameraId) return; // Stop if camera changed
+                
+                const snapshotUrl = API_BASE + '/snapshot?camera=' + encodeURIComponent(cameraId) + '&_=' + Date.now();
+                
+                img.onload = function() {
+                    img.style.display = 'block';
+                    if (placeholder) placeholder.style.display = 'none';
+                };
+                
+                img.onerror = function() {
+                    console.log('Snapshot failed, retrying...');
+                    // Keep trying snapshots
+                };
+                
+                img.src = snapshotUrl;
+            };
+            
+            // Load first snapshot immediately
+            loadSnapshot();
+            
+            // Set up interval for continuous snapshots
+            snapshotInterval = setInterval(loadSnapshot, 500); // 2 FPS
+            
+            currentMjpegCamera = null; // Allow other operations
+        }
+        
+        function retryCamera(cameraId) {
+            mjpegRetryCount = 0;
+            currentMjpegCamera = null;
+            setMjpegSrc(cameraId);
+        }
+
+        async function testCurrentCamera() {
+            const cameraSelect = document.getElementById('cameraSelect');
+            const testBtn = document.getElementById('testCameraBtn');
+            
+            if (!cameraSelect.value) {
+                alert('Please select a camera first');
+                return;
+            }
+            
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+            
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/camera/' + cameraSelect.value + '/test');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert('✅ Camera test successful! The camera is accessible.');
+                    // Automatically start showing the feed
+                    setMjpegSrc(cameraSelect.value);
+                } else {
+                    alert('❌ Camera test failed: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Camera test error:', error);
+                alert('❌ Error testing camera: ' + error.message);
+            } finally {
+                testBtn.disabled = false;
+                testBtn.innerHTML = '<i class="fas fa-check-circle"></i> Test Camera';
+            }
+        }
+
+        async function saveDetectionSettings() {
+            const config = {
+                detection_threshold: parseFloat(document.getElementById('detectionThreshold').value),
+                emergency_threshold: parseFloat(document.getElementById('emergencyThreshold').value),
+                yellow_time: parseFloat(document.getElementById('yellowTime').value)
+            };
+            
+            try {
+                const response = await fetch(API_BASE + '/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                if (response.ok) {
+                    alert('Detection settings saved successfully!');
+                } else {
+                    alert('Failed to save settings');
+                }
+            } catch (error) {
+                console.error('Save detection settings error:', error);
+            }
+        }
+
+        // Simulation functions
+        async function handleVideoUpload(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const formData = new FormData();
+                formData.append('video', file);
+                
+                try {
+                    await detectApiBase();
+                    const response = await fetch(API_BASE + '/api/simulation/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok) {
+                        document.getElementById('videoPath').value = data.file_path;
+                        alert('Video uploaded successfully!');
+                    } else {
+                        alert('Upload failed: ' + data.error);
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                }
+            }
+        }
+
+        async function startSimulation() {
+            const videoPath = document.getElementById('videoPath').value;
+            if (!videoPath) {
+                alert('Please select a video file first');
+                return;
+            }
+            
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/simulation/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_path: videoPath })
+                });
+                
+                if (response.ok) {
+                    alert('Simulation started!');
+                } else {
+                    const data = await response.json();
+                    alert('Failed to start simulation: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Start simulation error:', error);
+            }
+        }
+
+        async function stopSimulation() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/simulation/stop', { method: 'POST' });
+                if (response.ok) {
+                    alert('Simulation stopped');
+                }
+            } catch (error) {
+                console.error('Stop simulation error:', error);
+            }
+        }
+
+        // Log functions
+        async function refreshLogs() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/events?limit=50');
+                const data = await response.json();
+                
+                const logContainer = document.getElementById('eventLog');
+                logContainer.innerHTML = '';
+                
+                data.events.forEach(event => {
+                    addLogEvent(event, false);
+                });
+            } catch (error) {
+                console.error('Refresh logs error:', error);
+            }
+        }
+
+        function addLogEvent(event, prepend = true) {
+            const logContainer = document.getElementById('eventLog');
+            const logItem = document.createElement('div');
+            logItem.className = 'log-item';
+            
+            const time = new Date(event.data.timestamp * 1000).toLocaleTimeString();
+            const type = event.type.replace('_', ' ').toUpperCase();
+            
+            let message = '';
+            switch (event.type) {
+                case 'emergency_detected':
+                    message = `Emergency vehicle detected in ${event.data.direction} direction`;
+                    break;
+                case 'bus_priority':
+                    message = `Bus priority activated: ${event.data.bus_count} buses in ${event.data.direction}`;
+                    break;
+                case 'direction_change':
+                    message = `Signal changed: ${event.data.old_direction} → ${event.data.new_direction}`;
+                    break;
+                case 'manual_override':
+                    message = `Manual override: ${event.data.direction} set to green`;
+                    break;
+                default:
+                    message = `${type}: ${JSON.stringify(event.data)}`;
+            }
+            
+            logItem.innerHTML = `
+                <div class="log-time">${time}</div>
+                <div class="log-message">${message}</div>
+                <div class="log-type ${event.type.split('_')[0]}">${type}</div>
+            `;
+            
+            if (prepend) {
+                logContainer.insertBefore(logItem, logContainer.firstChild);
+            } else {
+                logContainer.appendChild(logItem);
+            }
+        }
+
+        async function exportLogs() {
+            await detectApiBase();
+            window.open(API_BASE + '/api/events/export', '_blank');
+        }
+
+        function filterLogs() {
+            const filter = document.getElementById('logFilter').value;
+            const logItems = document.querySelectorAll('.log-item');
+            
+            logItems.forEach(item => {
+                const logType = item.querySelector('.log-type').textContent.toLowerCase();
+                if (!filter || logType.includes(filter)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            const ctx = document.getElementById('simulationChart');
+            if (ctx) {
+                charts.simulation = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Wait Time',
+                            data: [],
+                            borderColor: 'rgb(231, 76, 60)',
+                            tension: 0.1
+                        }, {
+                            label: 'Throughput',
+                            data: [],
+                            borderColor: 'rgb(52, 152, 219)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // File drag and drop
+        const fileUpload = document.getElementById('fileUpload');
+        if (fileUpload) {
+            fileUpload.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUpload.classList.add('dragover');
+            });
+            
+            fileUpload.addEventListener('dragleave', () => {
+                fileUpload.classList.remove('dragover');
+            });
+            
+            fileUpload.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUpload.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    document.getElementById('videoFile').files = files;
+                    handleVideoUpload(document.getElementById('videoFile'));
+                }
+            });
+        }
+
+        // Load initial configuration
+        async function loadConfig() {
+            try {
+                const response = await fetch(API_BASE + '/api/config');
+                const config = await response.json();
+                
+                // Load camera URLs
+                document.getElementById('northCameraInput').value = config.camera_urls?.north || '';
+                document.getElementById('eastCameraInput').value = config.camera_urls?.east || '';
+                document.getElementById('southCameraInput').value = config.camera_urls?.south || '';
+                document.getElementById('westCameraInput').value = config.camera_urls?.west || '';
+                
+                // Load detection settings
+                document.getElementById('detectionThreshold').value = config.detection_threshold || 0.5;
+                document.getElementById('emergencyThreshold').value = config.emergency_threshold || 0.8;
+                document.getElementById('yellowTime').value = config.yellow_time || 4.0;
+                
+                // Update displays
+                updateDetectionThreshold(config.detection_threshold || 0.5);
+                updateEmergencyThreshold(config.emergency_threshold || 0.8);
+                updateYellowTime(config.yellow_time || 4.0);
+                // If a single camera exists, enable MJPEG preview
+                if (config.camera_urls && config.camera_urls.north) {
+                    setMjpegSrc('north');
+                }
+            } catch (error) {
+                console.error('Load config error:', error);
+            }
+        }
+
+        // 4-Camera management functions
+        function initializeAllCameras() {
+            console.log('🎬 === INITIALIZING ALL 4 CAMERAS ===');
+            const directions = ['north', 'east', 'south', 'west'];
+            
+            // First, verify API connection with a longer timeout
+            console.log('🔍 Verifying API connection...');
+            detectApiBase().then(() => {
+                console.log(`✅ API Base confirmed: ${API_BASE || '(same origin)'} - Starting camera initialization`);
+                
+                // Test API connection
+                return fetch(API_BASE + '/api/status');
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`API Status check failed: ${response.status}`);
+                }
+                console.log('✅ API Status check passed');
+                
+                // Initialize each camera feed with proper staggering
+                directions.forEach((direction, index) => {
+                    setTimeout(() => {
+                        console.log(`🚀 Starting camera feed for ${direction} (${index + 1}/4)`);
+                        startCameraFeed(direction);
+                    }, index * 300); // Increased to 300ms stagger for better reliability
+                });
+                
+                console.log('📡 All camera feeds queued for initialization');
+            }).catch(err => {
+                console.error('❌ API connection failed before camera init:', err);
+                alert(`❌ Camera initialization failed: API connection error\n${err.message}\n\nPlease check if the backend is running on 127.0.0.1:5000`);
+                
+                // Still try to initialize with default API base as fallback
+                console.log('🔄 Attempting fallback initialization...');
+                directions.forEach((direction, index) => {
+                    setTimeout(() => {
+                        console.log(`🚀 Starting camera feed for ${direction} (fallback)`);
+                        startCameraFeed(direction);
+                    }, index * 300);
+                });
+            });
+        }
+        
+        function startCameraFeed(direction) {
+            console.log(`📹 Starting camera feed for ${direction}`);
+            
+            const img = document.getElementById(direction + 'Camera');
+            const placeholder = document.getElementById(direction + 'Placeholder');
+            
+            if (!img || !placeholder) {
+                console.error(`Camera elements not found for ${direction}`);
+                return;
+            }
+            
+            // Clear any existing retry timeouts
+            if (img.retryTimeout) {
+                clearTimeout(img.retryTimeout);
+            }
+            
+            // Show loading state immediately
+            img.style.display = 'none';
+            placeholder.style.display = 'flex';
+            placeholder.innerHTML = `
+                <i class="fas fa-spinner fa-spin" style="color: #007bff; font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                <p><strong>${direction.charAt(0).toUpperCase() + direction.slice(1)} Camera</strong></p>
+                <small>Checking configuration...</small>
+            `;
+            
+            // Check if camera URL is configured
+            fetch(API_BASE + '/api/config')
+            .then(response => response.json())
+            .then(config => {
+                const cameraUrl = config.camera_urls && config.camera_urls[direction];
+                
+                if (!cameraUrl || cameraUrl.trim() === '') {
+                    console.log(`⚠️ No camera URL configured for ${direction}`);
+                    img.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                    placeholder.innerHTML = `
+                        <i class="fas fa-camera" style="font-size: 2rem; opacity: 0.3; margin-bottom: 0.5rem;"></i>
+                        <p><strong>${direction.charAt(0).toUpperCase() + direction.slice(1)} Camera</strong></p>
+                        <small style="text-align: center; margin-top: 0.3rem; color: #6c757d;">Configure camera IP in Settings tab<br>to enable live detection</small>
+                        <button onclick="showTab('settings')" style="margin-top:8px; padding:4px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.8rem;">
+                            🔧 Go to Settings
+                        </button>
+                    `;
+                    return;
+                }
+                
+                console.log(`✅ Camera URL found for ${direction}: ${cameraUrl}`);
+                
+                // Show connecting state
+                placeholder.innerHTML = `
+                    <i class="fas fa-wifi" style="color: #28a745; font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    <p><strong>${direction.charAt(0).toUpperCase() + direction.slice(1)} Camera</strong></p>
+                    <small>Connecting to camera...</small>
+                    <div style="margin-top: 0.5rem; font-size: 0.7rem; opacity: 0.7; word-break: break-all;">${cameraUrl}</div>
+                `;
+                
+                // Set up image load handlers
+                img.onload = function() {
+                    console.log(`✅ ${direction} camera stream loaded successfully`);
+                    img.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    img.retryCount = 0; // Reset retry count on success
+                };
+                
+                img.onerror = function() {
+                    console.log(`❌ ${direction} camera failed, showing retry options`);
+                    img.style.display = 'none';
+                    placeholder.style.display = 'flex';
+                    
+                    // Increment retry count
+                    img.retryCount = (img.retryCount || 0) + 1;
+                    
+                    // Progressive retry with exponential backoff (max 3 retries)
+                    if (img.retryCount <= 3) {
+                        const retryDelay = Math.min(2000 * img.retryCount, 10000); // Max 10s delay
+                        console.log(`🔄 Retrying camera ${direction} in ${retryDelay/1000}s (attempt ${img.retryCount}/3)`);
+                        
+                        placeholder.innerHTML = `
+                            <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                            <p><strong>${direction.charAt(0).toUpperCase() + direction.slice(1)} Camera</strong></p>
+                            <small>Connection failed - Retrying (${img.retryCount}/3)</small>
+                            <div style="margin-top: 0.5rem; font-size: 0.7rem; opacity: 0.7;">Next retry in ${Math.ceil(retryDelay/1000)}s</div>
+                        `;
+                        
+                        img.retryTimeout = setTimeout(() => {
+                            console.log(`🔄 Retry attempt ${img.retryCount} for ${direction}`);
+                            const retryUrl = API_BASE + '/mjpeg_feed?camera=' + direction + '&retry=' + Date.now();
+                            img.src = retryUrl;
+                        }, retryDelay);
+                    } else {
+                        // Max retries reached, show error with manual retry and diagnostic options
+                        console.log(`🚫 Max retries reached for ${direction} camera`);
+                        placeholder.innerHTML = `
+                            <i class="fas fa-times-circle" style="color: #dc3545; font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                            <p><strong>${direction.charAt(0).toUpperCase() + direction.slice(1)} Camera</strong></p>
+                            <small style="color: #dc3545;">Connection Failed</small>
+                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                                <button onclick="startCameraFeed('${direction}')" 
+                                        style="padding:4px 8px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">
+                                    🔄 Retry
+                                </button>
+                                <button onclick="openDiagnosticModal()" 
+                                        style="padding:4px 8px; background:#ffc107; color:#000; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">
+                                    🔧 Diagnose
+                                </button>
+                                <button onclick="showTab('settings')" 
+                                        style="padding:4px 8px; background:#6c757d; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.75rem;">
+                                    ⚙️ Settings
+                                </button>
+                            </div>
+                        `;
+                    }
+                };
+                
+                // Set MJPEG stream URL
+                const mjpegUrl = API_BASE + '/mjpeg_feed?camera=' + direction + '&_=' + Date.now();
+                console.log(`📹 Loading ${direction} camera from: ${mjpegUrl}`);
+                img.src = mjpegUrl;
+            })
+            .catch(err => {
+                console.error(`🚫 Failed to get config for ${direction}:`, err);
+                placeholder.style.display = 'flex';
+                placeholder.innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="color: #dc3545; font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                    <p><strong>${direction.charAt(0).toUpperCase() + direction.slice(1)} Camera</strong></p>
+                    <small style="color: #dc3545;">API Connection Failed</small>
+                    <button onclick="startCameraFeed('${direction}')" 
+                            style="margin-top:8px; padding:4px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.8rem;">
+                        🔄 Retry
+                    </button>
+                `;
+            });
+        }
+        
+        function refreshAllCameras() {
+            console.log('Refreshing all cameras...');
+            const directions = ['north', 'east', 'south', 'west'];
+            directions.forEach(direction => {
+                const img = document.getElementById(direction + 'Camera');
+                if (img) {
+                    img.src = img.src.split('&_=')[0] + '&_=' + Date.now();
+                }
+            });
+        }
+        
+        // Vehicle count update function
+        async function updateVehicleCounts() {
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/vehicle-counts');
+                const data = await response.json();
+                
+                if (data) {
+                    updateVehicleCountDisplay(data);
+                    updateQueueDisplay(data.queue_data || {});
+                    updateSignalTiming(data.signal_timing || {});
+                }
+            } catch (error) {
+                console.error('Error updating vehicle counts:', error);
+            }
+        }
+        
+        function updateVehicleCountDisplay(data) {
+            const directions = ['north', 'east', 'south', 'west'];
+            
+            directions.forEach(direction => {
+                const countElement = document.getElementById(direction + 'Count');
+                const directionData = data[direction] || {};
+                
+                if (countElement) {
+                    const total = directionData.total || 0;
+                    const emergency = directionData.emergency || 0;
+                    
+                    let countText = `Vehicles: ${total}`;
+                    if (emergency > 0) {
+                        countText += ` (${emergency} Emergency!)`;
+                        countElement.style.background = 'rgba(220, 53, 69, 0.9)';
+                    } else {
+                        countElement.style.background = 'rgba(0,0,0,0.8)';
+                    }
+                    
+                    countElement.textContent = countText;
+                }
+                
+                // Update sidebar counts
+                const sidebarElement = document.getElementById(direction + 'Count');
+                if (sidebarElement) {
+                    const countValueEl = sidebarElement.querySelector('.count-value');
+                    if (countValueEl) {
+                        countValueEl.textContent = directionData.total || 0;
+                    }
+                }
+            });
+            
+            // Update special vehicles
+            const totalBuses = directions.reduce((sum, dir) => sum + (data[dir]?.bus || 0), 0);
+            const totalEmergency = directions.reduce((sum, dir) => sum + (data[dir]?.emergency || 0), 0);
+            
+            const busCountEl = document.getElementById('busCount');
+            const emergencyCountEl = document.getElementById('emergencyCount');
+            
+            if (busCountEl) {
+                busCountEl.querySelector('.count-value').textContent = totalBuses;
+            }
+            
+            if (emergencyCountEl) {
+                emergencyCountEl.querySelector('.count-value').textContent = totalEmergency;
+                if (totalEmergency > 0) {
+                    emergencyCountEl.style.animation = 'pulse 1s infinite';
+                } else {
+                    emergencyCountEl.style.animation = 'none';
+                }
+            }
+        }
+        
+        function updateQueueDisplay(queueData) {
+            const directions = ['north', 'east', 'south', 'west'];
+            
+            // Store queue data globally for timer calculations
+            window.lastQueueData = queueData;
+            
+            directions.forEach(direction => {
+                const queueElement = document.getElementById(direction + 'Queue');
+                const directionQueue = queueData[direction] || {};
+                
+                if (queueElement) {
+                    const stopped = directionQueue.stopped_vehicles || 0;
+                    const moving = directionQueue.moving_vehicles || 0;
+                    
+                    if (stopped > 0) {
+                        queueElement.textContent = `Queue: ${stopped}`;
+                        queueElement.className = 'queue-indicator stopped';
+                    } else if (moving > 0) {
+                        queueElement.textContent = `Moving: ${moving}`;
+                        queueElement.className = 'queue-indicator moving';
+                    } else {
+                        queueElement.textContent = 'Clear';
+                        queueElement.className = 'queue-indicator';
+                        queueElement.style.background = '#6c757d';
+                    }
+                }
+            });
+        }
+        
+        function updateSignalTiming(signalTiming) {
+            const remainingTimeEl = document.getElementById('remainingTime');
+            const nextDirectionEl = document.getElementById('nextDirection');
+            
+            if (remainingTimeEl && signalTiming.remaining_time !== undefined) {
+                const remaining = Math.ceil(signalTiming.remaining_time);
+                remainingTimeEl.textContent = remaining > 0 ? `${remaining}s` : '-';
+                
+                // Add color coding based on time
+                if (remaining < 10) {
+                    remainingTimeEl.style.color = '#dc3545'; // Red
+                } else if (remaining < 20) {
+                    remainingTimeEl.style.color = '#ffc107'; // Yellow
+                } else {
+                    remainingTimeEl.style.color = '#28a745'; // Green
+                }
+            }
+            
+            if (nextDirectionEl) {
+                if (signalTiming.is_yellow) {
+                    nextDirectionEl.textContent = 'Changing...';
+                } else {
+                    nextDirectionEl.textContent = signalTiming.current_green || '-';
+                }
+            }
+            
+            // Update individual direction timers
+            updateDirectionTimers(signalTiming);
+        }
+        
+        function updateDirectionTimers(signalTiming) {
+            const directions = ['north', 'east', 'south', 'west'];
+            const currentGreen = signalTiming.current_green ? signalTiming.current_green.toLowerCase() : null;
+            const remainingTime = Math.ceil(signalTiming.remaining_time || 0);
+            
+            // Sequential order: North → East → South → West
+            const sequenceOrder = ['north', 'east', 'south', 'west'];
+            const currentIndex = currentGreen ? sequenceOrder.indexOf(currentGreen) : 0;
+            
+            directions.forEach((direction, index) => {
+                const timerEl = document.getElementById(direction + 'Timer');
+                if (!timerEl) return;
+                
+                if (direction === currentGreen) {
+                    // Current active direction - show running timer
+                    if (signalTiming.is_yellow) {
+                        timerEl.textContent = 'Changing';
+                        timerEl.className = 'direction-timer waiting';
+                    } else {
+                        timerEl.textContent = `Active: ${remainingTime}s`;
+                        timerEl.className = 'direction-timer active';
+                    }
+                } else {
+                    // Calculate position in sequence relative to current
+                    const directionIndex = sequenceOrder.indexOf(direction);
+                    let positionInQueue;
+                    
+                    if (directionIndex > currentIndex) {
+                        positionInQueue = directionIndex - currentIndex;
+                    } else {
+                        positionInQueue = (4 - currentIndex) + directionIndex;
+                    }
+                    
+                    // Show queue position instead of estimated time
+                    timerEl.textContent = `Queue: ${positionInQueue}`;
+                    timerEl.className = 'direction-timer waiting';
+                    
+                    // Add visual indicator for next direction
+                    if (positionInQueue === 1) {
+                        timerEl.textContent = 'Next in queue';
+                        timerEl.style.background = 'rgba(255, 193, 7, 0.9)';
+                    }
+                }
+            });
+        }
+        
+        // Camera diagnostic functions
+        let diagnosisResults = null;
+        
+        function openDiagnosticModal() {
+            document.getElementById('diagnosticModal').style.display = 'block';
+        }
+        
+        function closeDiagnosticModal() {
+            document.getElementById('diagnosticModal').style.display = 'none';
+            document.getElementById('diagnosticResults').style.display = 'none';
+            document.getElementById('recommendationSection').style.display = 'none';
+        }
+        
+        async function runDiagnosis() {
+            const url = document.getElementById('diagnosticUrl').value.trim();
+            if (!url) {
+                alert('Please enter a camera URL to test');
+                return;
+            }
+            
+            const diagnoseBtn = document.getElementById('diagnoseBtn');
+            const originalText = diagnoseBtn.innerHTML;
+            
+            diagnoseBtn.disabled = true;
+            diagnoseBtn.innerHTML = '<span class="loading-spinner"></span> Running Diagnosis...';
+            
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/camera/diagnose', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                diagnosisResults = await response.json();
+                displayDiagnosisResults(diagnosisResults);
+                
+            } catch (error) {
+                console.error('Diagnosis error:', error);
+                alert('Error running diagnosis: ' + error.message);
+            } finally {
+                diagnoseBtn.disabled = false;
+                diagnoseBtn.innerHTML = originalText;
+            }
+        }
+        
+        function displayDiagnosisResults(results) {
+            const resultsDiv = document.getElementById('diagnosticResults');
+            const summaryDiv = document.getElementById('resultsSummary');
+            const detailedDiv = document.getElementById('detailedResults');
+            const recommendationDiv = document.getElementById('recommendationSection');
+            
+            // Show results section
+            resultsDiv.style.display = 'block';
+            
+            // Summary
+            if (results.status === 'success') {
+                summaryDiv.innerHTML = `
+                    <div class="diagnostic-attempt success">
+                        <h4>✅ Success! Found ${results.successful_urls.length} working URL(s)</h4>
+                        <p><strong>Recommended URL:</strong> ${results.recommended_url}</p>
+                    </div>
+                `;
+                
+                // Show recommendation
+                recommendationDiv.style.display = 'block';
+                document.getElementById('recommendationText').textContent = 
+                    `We found a working camera URL: ${results.recommended_url}. Click below to automatically configure your camera.`;
+            } else {
+                summaryDiv.innerHTML = `
+                    <div class="diagnostic-attempt failed">
+                        <h4>❌ No working URLs found</h4>
+                        <p>${results.message}</p>
+                    </div>
+                `;
+                
+                if (results.suggestions) {
+                    summaryDiv.innerHTML += `
+                        <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border-radius: 8px;">
+                            <h5>💡 Troubleshooting Suggestions:</h5>
+                            <ul>${results.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Detailed results
+            let detailedHtml = '<h4>Detailed Test Results</h4>';
+            results.attempts.forEach(attempt => {
+                const statusClass = attempt.status === 'success' ? 'success' : 'failed';
+                const statusIcon = attempt.status === 'success' ? '✅' : '❌';
+                
+                detailedHtml += `
+                    <div class="diagnostic-attempt ${statusClass}">
+                        <h4>${statusIcon} ${attempt.url}</h4>
+                        <div class="diagnostic-details">
+                            <div class="diagnostic-detail">
+                                <span>Status:</span>
+                                <span>${attempt.status}</span>
+                            </div>
+                            <div class="diagnostic-detail">
+                                <span>Response:</span>
+                                <span>HTTP ${attempt.response_code || 'N/A'}</span>
+                            </div>
+                            <div class="diagnostic-detail">
+                                <span>Content-Type:</span>
+                                <span>${attempt.content_type || 'N/A'}</span>
+                            </div>
+                            <div class="diagnostic-detail">
+                                <span>Response Time:</span>
+                                <span>${attempt.response_time || 'N/A'}ms</span>
+                            </div>
+                            <div class="diagnostic-detail">
+                                <span>Frame Captured:</span>
+                                <span>${attempt.frame_captured ? 'Yes' : 'No'}</span>
+                            </div>
+                            ${attempt.frame_shape ? `
+                                <div class="diagnostic-detail">
+                                    <span>Frame Size:</span>
+                                    <span>${attempt.frame_shape[1]}x${attempt.frame_shape[0]}</span>
+                                </div>
+                            ` : ''}
+                            ${attempt.error_message ? `
+                                <div class="diagnostic-detail" style="grid-column: 1 / -1;">
+                                    <span>Error:</span>
+                                    <span style="color: #dc3545;">${attempt.error_message}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            detailedDiv.innerHTML = detailedHtml;
+        }
+        
+        async function autoConfigureCamera() {
+            if (!diagnosisResults || !diagnosisResults.recommended_url) {
+                alert('No recommended URL available');
+                return;
+            }
+            
+            const selectedCamera = document.getElementById('cameraSelect').value || 'north';
+            const autoConfigBtn = document.getElementById('autoConfigBtn');
+            const originalText = autoConfigBtn.innerHTML;
+            
+            autoConfigBtn.disabled = true;
+            autoConfigBtn.innerHTML = '<span class="loading-spinner"></span> Configuring...';
+            
+            try {
+                await detectApiBase();
+                const response = await fetch(API_BASE + '/api/camera/auto-configure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        camera_id: selectedCamera,
+                        recommended_url: diagnosisResults.recommended_url
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    alert('✅ Camera configured successfully! Starting live feed...');
+                    
+                    // Update the camera URL in settings
+                    const cameraInput = document.getElementById(selectedCamera + 'Camera');
+                    if (cameraInput) {
+                        cameraInput.value = diagnosisResults.recommended_url;
+                    }
+                    
+                    // Start the camera feed
+                    setMjpegSrc(selectedCamera);
+                    
+                    // Close modal
+                    closeDiagnosticModal();
+                } else {
+                    alert('❌ Failed to configure camera: ' + result.message);
+                }
+                
+            } catch (error) {
+                console.error('Auto-configure error:', error);
+                alert('Error configuring camera: ' + error.message);
+            } finally {
+                autoConfigBtn.disabled = false;
+                autoConfigBtn.innerHTML = originalText;
+            }
+        }
+        
+        // Camera selector event listener
+        document.getElementById('cameraSelect').addEventListener('change', function() {
+            const selectedCamera = this.value;
+            if (selectedCamera) {
+                startCameraFeed(selectedCamera);
+            } else {
+                // Hide camera feed
+                const mjpegView = document.getElementById('mjpegView');
+                const placeholder = document.getElementById('cameraPlaceholder');
+                if (mjpegView && placeholder) {
+                    mjpegView.style.display = 'none';
+                    placeholder.style.display = 'block';
+                }
+            }
+        });
+    </script>
+
+    <!-- Camera Diagnostic Modal -->
+    <div id="diagnosticModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-stethoscope"></i> Camera Diagnostic Tool</h2>
+                <span class="close" onclick="closeDiagnosticModal()">&times;</span>
+            </div>
+            
+            <div class="diagnostic-form">
+                <p>Enter your IP camera URL to test multiple formats and find the working connection:</p>
+                <input type="text" id="diagnosticUrl" placeholder="http://100.111.134.57:8080/video" value="http://100.111.134.57:8080/video">
+                <button class="btn btn-primary" onclick="runDiagnosis()" id="diagnoseBtn">
+                    <i class="fas fa-search"></i> Start Diagnosis
+                </button>
+            </div>
+            
+            <div id="diagnosticResults" class="diagnostic-results" style="display: none;">
+                <h3>Diagnosis Results</h3>
+                <div id="resultsSummary"></div>
+                <div id="detailedResults"></div>
+                <div id="recommendationSection" style="display: none;">
+                    <h4>Recommended Action</h4>
+                    <p id="recommendationText"></p>
+                    <button class="btn btn-success" onclick="autoConfigureCamera()" id="autoConfigBtn">
+                        <i class="fas fa-magic"></i> Auto-Configure Camera
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
